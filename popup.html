@@ -19,14 +19,14 @@
         <div class="tabs">
             <button class="tab-btn active" data-tab="cart">Cart</button>
             <button class="tab-btn" data-tab="add-item">Add Item</button>
+            <button class="tab-btn" data-tab="folders">Folders</button>
         </div>
 
         <div class="tab-content">
             <!-- Cart Tab -->
             <div id="cart-tab" class="tab-panel active">
-                <div id="cart-items" class="cart-items">
-                    <!-- Cart items will be populated here -->
-                </div>
+                <div id="cart-folder-select"></div>
+                <div id="cart-items" class="cart-items"></div>
                 <div class="cart-actions">
                     <button id="clear-cart" class="btn btn-secondary">Clear Cart</button>
                     <button id="export-cart" class="btn btn-primary">Export List</button>
@@ -52,13 +52,25 @@
                         <label for="item-notes">Notes</label>
                         <textarea id="item-notes" rows="2"></textarea>
                     </div>
+                    <div class="form-group" id="add-item-folder-select"></div>
                     <button type="submit" class="btn btn-primary">Add to Cart</button>
                 </form>
+            </div>
+
+            <!-- Folders Tab -->
+            <div id="folders-tab" class="tab-panel">
+                <div class="folders-grid" id="folders-grid"></div>
+                <button id="add-folder-fab" class="fab">+</button>
             </div>
         </div>
 
         <div class="quick-add">
             <button id="quick-add-btn" class="btn btn-success">Quick Add from Page</button>
+        </div>
+
+        <!-- Folder Modals -->
+        <div id="folder-modal-overlay" class="modal-overlay" style="display:none;">
+            <div id="folder-modal" class="modal"></div>
         </div>
     </div>
 

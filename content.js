@@ -105,20 +105,28 @@ function findProductPrice() {
 // Extract price from text
 function extractPriceFromText(text) {
     const cleanText = text.replace(/price|cost|total|amount/gi, '').trim();
-    
+    // Replace comma as decimal separator (e.g., 84,89 -> 84.89)
+    let normalizedText = cleanText.replace(/(\d+),(\d{2})(?!\d)/g, '$1.$2');
+    // Remove thousands separator (dot or comma before 3 digits)
+    normalizedText = normalizedText.replace(/(\d)[.,](\d{3})/g, '$1$2');
+
     const patterns = [
-        /\$[\d,]+\.?\d*/g,
-        /€[\d,]+\.?\d*/g,
-        /£[\d,]+\.?\d*/g,
-        /[\d,]+\.?\d*\s*(dollars?|euros?|pounds?)/gi,
-        /[\d,]+\.?\d*/g
+        /€[\d.,]+/g,
+        /\$[\d.,]+/g,
+        /£[\d.,]+/g,
+        /[\d.,]+\s*(euros?|dollars?|pounds?)/gi,
+        /[\d.,]+/g
     ];
 
     for (const pattern of patterns) {
-        const matches = cleanText.match(pattern);
+        const matches = normalizedText.match(pattern);
         if (matches) {
             for (const match of matches) {
-                const num = parseFloat(match.replace(/[$,€£]/g, ''));
+                // Remove currency symbols and spaces
+                let numStr = match.replace(/[€$£\s]/g, '');
+                // Replace comma with dot for decimals
+                numStr = numStr.replace(',', '.');
+                const num = parseFloat(numStr);
                 if (!isNaN(num) && num > 0 && num < 1000000) {
                     return num;
                 }
