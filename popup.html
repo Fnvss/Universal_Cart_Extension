@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Shopping Cart</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛒 Universal Cart</h1>
+            <div class="cart-summary">
+                <span id="item-count">0 items</span>
+                <span id="total-price">$0.00</span>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="cart">Cart</button>
+            <button class="tab-btn" data-tab="add-item">Add Item</button>
+        </div>
+
+        <div class="tab-content">
+            <!-- Cart Tab -->
+            <div id="cart-tab" class="tab-panel active">
+                <div id="cart-items" class="cart-items">
+                    <!-- Cart items will be populated here -->
+                </div>
+                <div class="cart-actions">
+                    <button id="clear-cart" class="btn btn-secondary">Clear Cart</button>
+                    <button id="export-cart" class="btn btn-primary">Export List</button>
+                </div>
+            </div>
+
+            <!-- Add Item Tab -->
+            <div id="add-item-tab" class="tab-panel">
+                <form id="add-item-form">
+                    <div class="form-group">
+                        <label for="item-name">Item Name</label>
+                        <input type="text" id="item-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="item-price">Price</label>
+                        <input type="number" id="item-price" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="item-url">Website URL</label>
+                        <input type="url" id="item-url" placeholder="https://...">
+                    </div>
+                    <div class="form-group">
+                        <label for="item-notes">Notes</label>
+                        <textarea id="item-notes" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add to Cart</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="quick-add">
+            <button id="quick-add-btn" class="btn btn-success">Quick Add from Page</button>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html> 
