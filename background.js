@@ -91,4 +91,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
             }
         });
     }
-}); 
+});
+
+function updateAllFolderSelects() {
+    updateFolderSelect();
+    // updateCartFolderSelect(); // <-- REMOVE or comment out this line
+    updateAddItemFolderSelect();
+} 

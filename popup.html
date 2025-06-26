@@ -9,11 +9,15 @@
 <body>
     <div class="container">
         <header>
-            <h1>🛒 Universal Cart</h1>
+            <h1>Cryon Cart</h1>
+            <div style="font-size:13px;opacity:0.7;margin-bottom:4px;">by Cryon.ai</div>
             <div class="cart-summary">
                 <span id="item-count">0 items</span>
                 <span id="total-price">$0.00</span>
             </div>
+            <button id="settings-btn" class="settings-btn" title="Settings">
+                <img src="icons/settings.png" alt="Settings" style="width: 28px; height: 28px;">
+            </button>
         </header>
 
         <div class="tabs">
@@ -29,7 +33,7 @@
                 <div id="cart-items" class="cart-items"></div>
                 <div class="cart-actions">
                     <button id="clear-cart" class="btn btn-secondary">Clear Cart</button>
-                    <button id="export-cart" class="btn btn-primary">Export List</button>
+                    <button id="update-prices" class="btn btn-primary">Update Prices</button>
                 </div>
             </div>
 
@@ -60,7 +64,6 @@
             <!-- Folders Tab -->
             <div id="folders-tab" class="tab-panel">
                 <div class="folders-grid" id="folders-grid"></div>
-                <button id="add-folder-fab" class="fab">+</button>
             </div>
         </div>
 
@@ -71,6 +74,27 @@
         <!-- Folder Modals -->
         <div id="folder-modal-overlay" class="modal-overlay" style="display:none;">
             <div id="folder-modal" class="modal"></div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal-overlay" class="modal-overlay" style="display:none;">
+            <div id="settings-modal" class="modal">
+                <h2>Settings</h2>
+                <div class="form-group">
+                    <label for="currency-select">Currency</label>
+                    <select id="currency-select" class="form-select">
+                        <option value="EUR">Euros (€)</option>
+                        <option value="USD">US Dollar ($)</option>
+                        <option value="JPY">Japanese Yen (¥)</option>
+                        <option value="GBP">British Pound (£)</option>
+                    </select>
+                </div>
+                <button id="export-cart" class="btn btn-primary" style="width:100%;margin-bottom:16px;">Export List</button>
+                <div class="modal-actions">
+                    <button class="btn btn-primary" id="save-settings-btn">Save</button>
+                    <button class="btn btn-secondary" id="cancel-settings-btn">Cancel</button>
+                </div>
+            </div>
         </div>
     </div>
 

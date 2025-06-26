@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Universal Shopping Cart",
+  "name": "Cryon Cart",
   "version": "1.0.0",
-  "description": "Manage your shopping cart across different websites in one place",
+  "description": "Cryon Cart: An icy, minimal, and futuristic universal shopping cart by Cryon.ai.",
   "permissions": [
     "activeTab",
     "storage",

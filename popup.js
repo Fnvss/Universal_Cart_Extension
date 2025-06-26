@@ -15,6 +15,7 @@ const addItemForm = document.getElementById('add-item-form');
 const clearCartBtn = document.getElementById('clear-cart');
 const exportCartBtn = document.getElementById('export-cart');
 const quickAddBtn = document.getElementById('quick-add-btn');
+const updatePricesBtn = document.getElementById('update-prices');
 
 // Add after DOM elements
 const folderSelect = document.createElement('select');
@@ -41,13 +42,43 @@ const addFolderFab = document.getElementById('add-folder-fab');
 const folderModalOverlay = document.getElementById('folder-modal-overlay');
 const folderModal = document.getElementById('folder-modal');
 
+// Settings logic
+const settingsBtn = document.getElementById('settings-btn');
+const settingsModalOverlay = document.getElementById('settings-modal-overlay');
+const settingsModal = document.getElementById('settings-modal');
+const currencySelect = document.getElementById('currency-select');
+const saveSettingsBtn = document.getElementById('save-settings-btn');
+const cancelSettingsBtn = document.getElementById('cancel-settings-btn');
+
+let currency = 'EUR';
+const currencySymbols = {
+    'EUR': '€',
+    'USD': '$',
+    'JPY': '¥',
+    'GBP': '£'
+};
+
 // Initialize popup
 document.addEventListener('DOMContentLoaded', async () => {
+    // Hide all tab panels except the active one
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+        if (!panel.classList.contains('active')) {
+            panel.style.display = 'none';
+        } else {
+            panel.style.display = '';
+        }
+    });
     await loadCart();
+    await loadCurrency();
+    if (!currency) {
+        currency = 'EUR';
+        if (currencySelect) currencySelect.value = currency;
+        await chrome.storage.local.set({ currency });
+    }
     setupEventListeners();
     updateAllFolderSelects();
+    console.log('Before updateCartDisplay:', { cart, currency });
     updateCartDisplay();
-    setupGroupingToggle();
     renderFoldersGrid();
 });
 
@@ -68,10 +99,29 @@ function setupEventListeners() {
     clearCartBtn.addEventListener('click', clearCart);
     exportCartBtn.addEventListener('click', exportCart);
     quickAddBtn.addEventListener('click', quickAddFromPage);
+    updatePricesBtn.addEventListener('click', updateAllPrices);
 
     // Folders Tab Logic
     addFolderFab.addEventListener('click', () => {
         showFolderModal('add');
+    });
+
+    // Settings logic
+    settingsBtn.addEventListener('click', () => {
+        settingsModalOverlay.style.display = 'flex';
+        currencySelect.value = currency;
+    });
+
+    cancelSettingsBtn.addEventListener('click', () => {
+        settingsModalOverlay.style.display = 'none';
+    });
+
+    saveSettingsBtn.addEventListener('click', async () => {
+        currency = currencySelect.value;
+        await chrome.storage.local.set({ currency });
+        updateCartDisplay();
+        settingsModalOverlay.style.display = 'none';
+        showNotification('Settings saved!', 'success');
     });
 }
 
@@ -83,38 +133,51 @@ function switchTab(tabName) {
             btn.classList.add('active');
         }
     });
-
     tabPanels.forEach(panel => {
-        panel.classList.remove('active');
         if (panel.id === `${tabName}-tab`) {
             panel.classList.add('active');
+            panel.style.display = '';
+        } else {
+            panel.classList.remove('active');
+            panel.style.display = 'none';
         }
     });
-
+    // Hide quick add button in folders tab
+    if (tabName === 'folders') {
+        quickAddBtn.style.display = 'none';
+    } else {
+        quickAddBtn.style.display = '';
+    }
     if (tabName === 'folders') {
         renderFoldersGrid();
     }
+    // Reload cart from storage when switching to Cart tab
+    if (tabName === 'cart') {
+        loadCart().then(updateCartDisplay);
+    }
 }
 
-// Load cart and folders from storage
+// Load cart, folders, and currency from storage
 async function loadCart() {
     try {
-        const result = await chrome.storage.local.get(['cart', 'folders']);
+        const result = await chrome.storage.local.get(['cart', 'folders', 'currency']);
         cart = result.cart || [];
         if (Array.isArray(result.folders) && result.folders.length > 0 && typeof result.folders[0] === 'object') {
             folders = result.folders;
         } else {
-            // Migrate old string array to object array
             folders = (result.folders || ['Uncategorized']).map(name => ({ name, color: getDefaultFolderColor() }));
         }
-        // Ensure 'Uncategorized' always exists
         if (!folders.some(f => f.name === 'Uncategorized')) {
             folders.unshift({ name: 'Uncategorized', color: '#e9ecef' });
         }
-        // Ensure all items have a folder
         cart.forEach(item => {
             if (!item.folder) item.folder = 'Uncategorized';
         });
+        if (result.currency) {
+            currency = result.currency;
+            if (currencySelect) currencySelect.value = currency;
+        }
+        console.log('Loaded from storage:', { cart, folders, currency });
     } catch (error) {
         console.error('Error loading cart:', error);
         cart = [];
@@ -122,10 +185,11 @@ async function loadCart() {
     }
 }
 
-// Save cart and folders to storage
+// Save cart, folders, and currency to storage
 async function saveCart() {
     try {
-        await chrome.storage.local.set({ cart, folders });
+        await chrome.storage.local.set({ cart, folders, currency });
+        console.log('Saved to storage:', { cart, folders, currency });
     } catch (error) {
         console.error('Error saving cart:', error);
     }
@@ -216,7 +280,7 @@ async function quickAddFromPage() {
                 name: response.name || 'Unknown Product',
                 price: response.price || 0,
                 url: tab.url,
-                notes: response.notes || '',
+                notes: '',
                 addedAt: new Date().toISOString(),
                 source: 'page-extraction',
                 folder
@@ -236,9 +300,15 @@ async function quickAddFromPage() {
 }
 
 // Update cart display
+let collapsedFolders = {};
 function updateCartDisplay() {
+    console.log('Rendering cart:', { cart, currency });
     let html = '';
-    if (cart.length === 0) {
+    let filteredCart = cart;
+    if (folderFilter) {
+        filteredCart = cart.filter(item => item.folder === folderFilter);
+    }
+    if (filteredCart.length === 0) {
         html = `
             <div class="empty-cart">
                 <svg viewBox="0 0 24 24" fill="currentColor">
@@ -249,44 +319,50 @@ function updateCartDisplay() {
             </div>
         `;
     } else {
-        if (groupingMode === 'folder') {
-            // Group by folder
-            const grouped = {};
-            cart.forEach(item => {
-                const folder = item.folder || 'Uncategorized';
-                if (!grouped[folder]) grouped[folder] = [];
-                grouped[folder].push(item);
-            });
-            Object.keys(grouped).forEach(folder => {
-                html += `<div class="cart-group"><h3>${escapeHtml(folder)}</h3>`;
-                html += grouped[folder].map(item => renderCartItem(item)).join('');
-                html += '</div>';
-            });
-        } else if (groupingMode === 'retailer') {
-            // Group by retailer (domain)
-            const grouped = {};
-            cart.forEach(item => {
-                let domain = 'Unknown';
-                try {
-                    if (item.url) domain = new URL(item.url).hostname;
-                } catch {}
-                if (!grouped[domain]) grouped[domain] = [];
-                grouped[domain].push(item);
-            });
-            Object.keys(grouped).forEach(domain => {
-                html += `<div class="cart-group"><h3>${escapeHtml(domain)}</h3>`;
-                html += grouped[domain].map(item => renderCartItem(item)).join('');
-                html += '</div>';
-            });
-        }
+        // Always group by folder, center folder name, and add collapse/expand
+        const grouped = {};
+        filteredCart.forEach(item => {
+            const folder = item.folder || 'Uncategorized';
+            if (!grouped[folder]) grouped[folder] = [];
+            grouped[folder].push(item);
+        });
+        Object.keys(grouped).forEach(folder => {
+            const isCollapsed = collapsedFolders[folder];
+            html += `<div class="cart-group">
+                <div class="cart-group-header" style="text-align:center; margin: 18px 0 8px 0; cursor:pointer; font-size:18px; font-weight:600;">${escapeHtml(folder)}</div>
+                <div class="cart-group-items" data-folder-items="${folder}" style="overflow:hidden; transition:max-height 0.35s cubic-bezier(.4,0,.2,1), opacity 0.35s cubic-bezier(.4,0,.2,1); max-height:${isCollapsed ? '0' : '1000px'}; opacity:${isCollapsed ? '0' : '1'};">
+                    ${grouped[folder].map(item => renderCartItem(item)).join('')}
+                </div>
+            </div>`;
+        });
     }
     cartItemsContainer.innerHTML = html;
-
+    // Add clear filter button if filtering
+    if (folderFilter) {
+        const clearBtn = document.createElement('button');
+        clearBtn.className = 'btn btn-secondary';
+        clearBtn.textContent = 'Show All Folders';
+        clearBtn.onclick = () => {
+            folderFilter = null;
+            console.log('Clear filter, before updateCartDisplay:', { cart, currency });
+            updateCartDisplay();
+        };
+        cartItemsContainer.prepend(clearBtn);
+    }
+    // Attach collapse/expand listeners (on folder name)
+    cartItemsContainer.querySelectorAll('.cart-group-header').forEach(header => {
+        header.addEventListener('click', e => {
+            const folder = header.textContent;
+            collapsedFolders[folder] = !collapsedFolders[folder];
+            console.log('Collapse/expand, before updateCartDisplay:', { cart, currency });
+            updateCartDisplay();
+        });
+    });
     // Update summary
-    const totalItems = cart.length;
-    const totalPrice = cart.reduce((sum, item) => sum + item.price, 0);
+    const totalItems = filteredCart.length;
+    const totalPrice = filteredCart.reduce((sum, item) => sum + item.price, 0);
     itemCountElement.textContent = `${totalItems} item${totalItems !== 1 ? 's' : ''}`;
-    totalPriceElement.textContent = `${totalPrice.toFixed(2)} €`;
+    totalPriceElement.textContent = `${totalPrice.toFixed(2)} ${currencySymbols[currency] || '€'}`;
 
     // Attach remove button event listeners (event delegation)
     cartItemsContainer.querySelectorAll('.remove-btn').forEach(btn => {
@@ -294,8 +370,18 @@ function updateCartDisplay() {
             const itemId = btn.getAttribute('data-id');
             cart = cart.filter(item => item.id !== itemId);
             saveCart();
+            console.log('Remove item, before updateCartDisplay:', { cart, currency });
             updateCartDisplay();
             showNotification('Item removed from cart!', 'info');
+        });
+    });
+
+    // Attach edit button event listeners
+    cartItemsContainer.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const itemId = btn.getAttribute('data-id');
+            const item = cart.find(i => i.id === itemId);
+            if (item) showEditModal(item);
         });
     });
 }
@@ -305,11 +391,12 @@ function renderCartItem(item) {
         <div class="cart-item" data-id="${item.id}">
             <div class="item-info">
                 <div class="item-name">${escapeHtml(item.name)}</div>
-                <div class="item-price">${item.price.toFixed(2)} €</div>
+                <div class="item-price">${item.price.toFixed(2)} ${currencySymbols[currency] || '€'}</div>
                 ${item.url ? `<a href="${item.url}" target="_blank" class="item-url">${new URL(item.url).hostname}</a>` : ''}
                 ${item.notes ? `<div class="item-notes">${escapeHtml(item.notes)}</div>` : ''}
             </div>
             <div class="item-actions">
+                <button class="btn btn-secondary edit-btn" data-id="${item.id}">Edit</button>
                 <button class="btn btn-danger remove-btn" data-id="${item.id}">Remove</button>
             </div>
         </div>
@@ -422,117 +509,6 @@ function updateFolderSelect() {
     });
 }
 
-function setupGroupingToggle() {
-    const cartTab = document.getElementById('cart-tab');
-    if (!cartTab.querySelector('.grouping-toggle')) {
-        cartTab.insertBefore(groupingToggle, cartTab.firstChild);
-    }
-    groupingToggle.querySelectorAll('input[name="grouping"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            groupingMode = e.target.value;
-            updateCartDisplay();
-        });
-    });
-}
-
-function renderGlobalFolderManagement() {
-    globalFolderManagement.innerHTML = `
-        <div class="folder-management-global">
-            <select id="manage-folder-select" class="form-select" style="margin-right:5px;"></select>
-            <input type="text" id="new-folder-name-global" placeholder="New folder name" class="form-input" style="margin-right:5px;">
-            <button type="button" id="add-folder-btn-global" class="btn btn-secondary" style="margin-right:5px;">Add Folder</button>
-            <input type="text" id="rename-folder-name" placeholder="Rename to..." class="form-input" style="margin-right:5px;">
-            <button type="button" id="rename-folder-btn" class="btn btn-primary" style="margin-right:5px;">Rename</button>
-            <button type="button" id="delete-folder-btn" class="btn btn-danger">Delete</button>
-        </div>
-    `;
-    updateManageFolderSelect();
-    document.getElementById('add-folder-btn-global').onclick = () => {
-        const name = document.getElementById('new-folder-name-global').value.trim();
-        if (name && !folders.some(f => f.name === name)) {
-            folders.push({ name, color: getDefaultFolderColor() });
-            updateFolderSelect();
-            updateCartFolderSelect();
-            updateManageFolderSelect();
-            saveCart();
-            document.getElementById('new-folder-name-global').value = '';
-            showNotification('Folder added!', 'success');
-        }
-    };
-    document.getElementById('rename-folder-btn').onclick = () => {
-        const select = document.getElementById('manage-folder-select');
-        const oldName = select.value;
-        const newName = document.getElementById('rename-folder-name').value.trim();
-        if (!oldName || !newName || oldName === 'Uncategorized' || folders.some(f => f.name === newName)) {
-            showNotification('Invalid folder name or folder already exists!', 'error');
-            return;
-        }
-        // Rename folder in folders array
-        folders = folders.map(f => (f.name === oldName ? { name: newName, color: f.color } : f));
-        // Update all items in cart
-        cart.forEach(item => {
-            if (item.folder === oldName) item.folder = newName;
-        });
-        updateFolderSelect();
-        updateCartFolderSelect();
-        updateManageFolderSelect();
-        saveCart();
-        updateCartDisplay();
-        document.getElementById('rename-folder-name').value = '';
-        showNotification('Folder renamed!', 'success');
-    };
-    document.getElementById('delete-folder-btn').onclick = () => {
-        const select = document.getElementById('manage-folder-select');
-        const delName = select.value;
-        if (!delName || delName === 'Uncategorized') {
-            showNotification('Cannot delete this folder!', 'error');
-            return;
-        }
-        // Remove from folders array
-        folders = folders.filter(f => f.name !== delName);
-        // Move all items in this folder to Uncategorized
-        cart.forEach(item => {
-            if (item.folder === delName) item.folder = 'Uncategorized';
-        });
-        updateFolderSelect();
-        updateCartFolderSelect();
-        updateManageFolderSelect();
-        saveCart();
-        updateCartDisplay();
-        showNotification('Folder deleted! Items moved to Uncategorized.', 'success');
-    };
-}
-
-function updateManageFolderSelect() {
-    const select = document.getElementById('manage-folder-select');
-    if (!select) return;
-    select.innerHTML = '';
-    folders.forEach(folder => {
-        const option = document.createElement('option');
-        option.value = folder.name;
-        option.textContent = folder.name;
-        select.appendChild(option);
-    });
-}
-
-function updateCartFolderSelect() {
-    if (!cartFolderSelectDiv) return;
-    if (!cartFolderSelect) {
-        cartFolderSelect = document.createElement('select');
-        cartFolderSelect.id = 'cart-folder-select-dropdown';
-        cartFolderSelect.className = 'form-select';
-        cartFolderSelectDiv.appendChild(cartFolderSelect);
-    }
-    cartFolderSelect.innerHTML = '';
-    folders.forEach(folder => {
-        const option = document.createElement('option');
-        option.value = folder.name;
-        option.textContent = folder.name;
-        option.style.background = folder.color;
-        cartFolderSelect.appendChild(option);
-    });
-}
-
 function renderFoldersGrid() {
     foldersGrid.innerHTML = '';
     folders.forEach(folder => {
@@ -555,8 +531,22 @@ function renderFoldersGrid() {
             if (folder.name === 'Uncategorized') return;
             showFolderContextMenu(e, folder.name);
         });
+        // Double-click to filter
+        card.addEventListener('dblclick', () => {
+            folderFilter = folder.name;
+            switchTab('cart');
+            updateCartDisplay();
+        });
         foldersGrid.appendChild(card);
     });
+    // Render the add-folder FAB as the last card in the grid
+    const fab = document.createElement('button');
+    fab.id = 'add-folder-fab';
+    fab.className = 'fab';
+    fab.type = 'button';
+    fab.textContent = 'Create a Folder';
+    fab.onclick = () => showFolderModal('add');
+    foldersGrid.appendChild(fab);
 }
 
 function showFolderModal(mode, folderName = '') {
@@ -705,7 +695,6 @@ function updateAddItemFolderSelect() {
 // Update all folder selects when folders change
 function updateAllFolderSelects() {
     updateFolderSelect();
-    updateCartFolderSelect();
     updateAddItemFolderSelect();
 }
 
@@ -717,4 +706,240 @@ function getDefaultFolderColor() {
 
 function getFolderByName(name) {
     return folders.find(f => f.name === name) || { name: 'Uncategorized', color: '#e9ecef' };
+}
+
+// Load currency from storage and update UI
+async function loadCurrency() {
+    const result = await chrome.storage.local.get(['currency']);
+    if (result.currency) {
+        currency = result.currency;
+        if (currencySelect) currencySelect.value = currency;
+    } else {
+        currency = 'EUR';
+        if (currencySelect) currencySelect.value = currency;
+        await chrome.storage.local.set({ currency });
+    }
+    console.log('Loaded currency:', currency);
+}
+
+async function updateAllPrices() {
+    if (cart.length === 0) {
+        showNotification('Cart is empty!', 'info');
+        return;
+    }
+    showNotification('Updating prices...', 'info');
+    let updatedCount = 0;
+    for (let i = 0; i < cart.length; i++) {
+        const item = cart[i];
+        if (!item.url) continue;
+        let tab = null;
+        try {
+            // Open the product page in a new background tab
+            tab = await new Promise((resolve, reject) => {
+                chrome.tabs.create({ url: item.url, active: false }, resolve);
+            });
+            // Wait a short, fixed delay (2 seconds)
+            await new Promise(res => setTimeout(res, 2000));
+            // Try to extract price
+            let response = null;
+            try {
+                response = await chrome.tabs.sendMessage(tab.id, { action: 'extractProductInfo' });
+            } catch (err) {
+                // Ignore extraction errors
+            }
+            if (response && response.success && response.price > 0) {
+                item.price = response.price;
+                updatedCount++;
+            }
+        } catch (err) {
+            // If any error, skip this item
+            console.error('Error updating price for', item.name, err);
+        } finally {
+            // Always close the tab if it was opened
+            if (tab && tab.id) {
+                chrome.tabs.remove(tab.id);
+            }
+        }
+    }
+    await saveCart();
+    updateCartDisplay();
+    if (updatedCount > 0) {
+        showNotification(`Prices updated for ${updatedCount} item${updatedCount !== 1 ? 's' : ''}!`, 'success');
+    } else {
+        showNotification('No prices were updated.', 'info');
+    }
+}
+
+// Add edit modal logic
+let editModalOverlay = null;
+let editModal = null;
+function ensureEditModal() {
+    if (!editModalOverlay) {
+        editModalOverlay = document.createElement('div');
+        editModalOverlay.className = 'modal-overlay';
+        editModalOverlay.style.display = 'none';
+        editModalOverlay.id = 'edit-modal-overlay';
+        editModal = document.createElement('div');
+        editModal.className = 'modal';
+        editModal.id = 'edit-modal';
+        editModalOverlay.appendChild(editModal);
+        document.body.appendChild(editModalOverlay);
+    }
+}
+function showEditModal(item) {
+    ensureEditModal();
+    editModal.innerHTML = `
+        <h2>Edit Item</h2>
+        <div class="form-group">
+            <label for="edit-item-name">Name</label>
+            <input type="text" id="edit-item-name" value="${escapeHtml(item.name)}" required>
+        </div>
+        <div class="form-group">
+            <label for="edit-item-price">Price</label>
+            <input type="number" id="edit-item-price" step="0.01" min="0" value="${item.price}" required>
+        </div>
+        <div class="form-group">
+            <label for="edit-item-url">Website URL</label>
+            <input type="url" id="edit-item-url" value="${item.url || ''}" placeholder="https://...">
+        </div>
+        <div class="form-group">
+            <label for="edit-item-notes">Notes</label>
+            <textarea id="edit-item-notes" rows="2">${escapeHtml(item.notes || '')}</textarea>
+            <button type="button" class="btn btn-secondary" id="clear-notes-btn">Clear Notes</button>
+        </div>
+        <div class="form-group">
+            <label for="edit-item-folder">Folder</label>
+            <select id="edit-item-folder" class="form-select"></select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-primary" id="save-edit-btn">Save</button>
+            <button class="btn btn-secondary" id="cancel-edit-btn">Cancel</button>
+        </div>
+    `;
+    // Populate folder select
+    const folderSelect = editModal.querySelector('#edit-item-folder');
+    folders.forEach(folder => {
+        const option = document.createElement('option');
+        option.value = folder.name;
+        option.textContent = folder.name;
+        if (item.folder === folder.name) option.selected = true;
+        folderSelect.appendChild(option);
+    });
+    // Clear notes button
+    editModal.querySelector('#clear-notes-btn').onclick = () => {
+        editModal.querySelector('#edit-item-notes').value = '';
+    };
+    // Cancel button
+    editModal.querySelector('#cancel-edit-btn').onclick = () => {
+        editModalOverlay.style.display = 'none';
+    };
+    // Save button
+    editModal.querySelector('#save-edit-btn').onclick = () => {
+        const newName = editModal.querySelector('#edit-item-name').value.trim();
+        const newPrice = parseFloat(editModal.querySelector('#edit-item-price').value);
+        const newUrl = editModal.querySelector('#edit-item-url').value.trim();
+        const newNotes = editModal.querySelector('#edit-item-notes').value;
+        const newFolder = editModal.querySelector('#edit-item-folder').value;
+        if (!newName || isNaN(newPrice)) {
+            showNotification('Name and price are required!', 'error');
+            return;
+        }
+        item.name = newName;
+        item.price = newPrice;
+        item.url = newUrl;
+        item.notes = newNotes;
+        item.folder = newFolder;
+        saveCart();
+        updateCartDisplay();
+        editModalOverlay.style.display = 'none';
+        showNotification('Item updated!', 'success');
+    };
+    editModalOverlay.style.display = 'flex';
+}
+
+// Add folder filtering feature
+let folderFilter = null;
+function updateCartDisplay() {
+    console.log('Rendering cart:', { cart, currency });
+    let html = '';
+    let filteredCart = cart;
+    if (folderFilter) {
+        filteredCart = cart.filter(item => item.folder === folderFilter);
+    }
+    if (filteredCart.length === 0) {
+        html = `
+            <div class="empty-cart">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                </svg>
+                <p>Your cart is empty</p>
+                <p>Add items from any website to get started!</p>
+            </div>
+        `;
+    } else {
+        // Always group by folder, center folder name, and add collapse/expand
+        const grouped = {};
+        filteredCart.forEach(item => {
+            const folder = item.folder || 'Uncategorized';
+            if (!grouped[folder]) grouped[folder] = [];
+            grouped[folder].push(item);
+        });
+        Object.keys(grouped).forEach(folder => {
+            const isCollapsed = collapsedFolders[folder];
+            html += `<div class="cart-group">
+                <div class="cart-group-header" style="text-align:center; margin: 18px 0 8px 0; cursor:pointer; font-size:18px; font-weight:600;">${escapeHtml(folder)}</div>
+                <div class="cart-group-items" data-folder-items="${folder}" style="overflow:hidden; transition:max-height 0.35s cubic-bezier(.4,0,.2,1), opacity 0.35s cubic-bezier(.4,0,.2,1); max-height:${isCollapsed ? '0' : '1000px'}; opacity:${isCollapsed ? '0' : '1'};">
+                    ${grouped[folder].map(item => renderCartItem(item)).join('')}
+                </div>
+            </div>`;
+        });
+    }
+    cartItemsContainer.innerHTML = html;
+    // Add clear filter button if filtering
+    if (folderFilter) {
+        const clearBtn = document.createElement('button');
+        clearBtn.className = 'btn btn-secondary';
+        clearBtn.textContent = 'Show All Folders';
+        clearBtn.onclick = () => {
+            folderFilter = null;
+            console.log('Clear filter, before updateCartDisplay:', { cart, currency });
+            updateCartDisplay();
+        };
+        cartItemsContainer.prepend(clearBtn);
+    }
+    // Attach collapse/expand listeners (on folder name)
+    cartItemsContainer.querySelectorAll('.cart-group-header').forEach(header => {
+        header.addEventListener('click', e => {
+            const folder = header.textContent;
+            collapsedFolders[folder] = !collapsedFolders[folder];
+            console.log('Collapse/expand, before updateCartDisplay:', { cart, currency });
+            updateCartDisplay();
+        });
+    });
+    // Update summary
+    const totalItems = filteredCart.length;
+    const totalPrice = filteredCart.reduce((sum, item) => sum + item.price, 0);
+    itemCountElement.textContent = `${totalItems} item${totalItems !== 1 ? 's' : ''}`;
+    totalPriceElement.textContent = `${totalPrice.toFixed(2)} ${currencySymbols[currency] || '€'}`;
+
+    // Attach remove button event listeners (event delegation)
+    cartItemsContainer.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const itemId = btn.getAttribute('data-id');
+            cart = cart.filter(item => item.id !== itemId);
+            saveCart();
+            console.log('Remove item, before updateCartDisplay:', { cart, currency });
+            updateCartDisplay();
+            showNotification('Item removed from cart!', 'info');
+        });
+    });
+
+    // Attach edit button event listeners
+    cartItemsContainer.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const itemId = btn.getAttribute('data-id');
+            const item = cart.find(i => i.id === itemId);
+            if (item) showEditModal(item);
+        });
+    });
 } 
