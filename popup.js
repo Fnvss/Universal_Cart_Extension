@@ -539,14 +539,7 @@ function renderFoldersGrid() {
         });
         foldersGrid.appendChild(card);
     });
-    // Render the add-folder FAB as the last card in the grid
-    const fab = document.createElement('button');
-    fab.id = 'add-folder-fab';
-    fab.className = 'fab';
-    fab.type = 'button';
-    fab.textContent = 'Create a Folder';
-    fab.onclick = () => showFolderModal('add');
-    foldersGrid.appendChild(fab);
+    // Do not move or append the FAB here; it is in the HTML for folders tab only
 }
 
 function showFolderModal(mode, folderName = '') {
