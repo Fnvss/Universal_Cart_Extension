@@ -1,149 +1,92 @@
-# Universal Shopping Cart Chrome Extension
+# Cryon Cart – Universal Shopping Cart Extension
 
-A Chrome extension that helps you manage your shopping cart across different websites. Add items from any website to a centralized cart and view/manage them all in one place.
+A modern, privacy-first Chrome extension by Cryon.ai for managing your shopping cart across any website. Organize items into folders, track prices, and enjoy a sleek, futuristic UI—all with your data stored locally.
+
+---
 
 ## Features
 
-- **Universal Cart Management**: Add items from any website to a single, centralized cart
-- **Smart Product Detection**: Automatically extracts product names, prices, and descriptions from web pages
-- **Manual Item Addition**: Add items manually with custom details
-- **Cart Export**: Export your cart as a JSON file for backup or sharing
-- **Floating Add Button**: Quick add button appears on product pages
-- **Persistent Storage**: Your cart is saved locally and persists between browser sessions
-- **Modern UI**: Clean, modern interface with smooth animations
+- **Universal Cart**: Add products from any website to a single, centralized cart.
+- **Smart Extraction**: Automatically extract product name and price from most e-commerce pages.
+- **Manual Add/Edit**: Add or edit items with custom details (name, price, URL, notes, folder).
+- **Folders**: Organize your cart with custom folders (create, rename, delete, move items).
+- **Collapsible Groups**: Cart items are grouped by folder, with smooth expand/collapse.
+- **Price Tracking (User-Driven)**: Update prices for all items by opening product pages in background tabs and extracting the latest price.
+- **Export Cart**: Download your cart as a JSON file for backup or sharing (from the Settings menu).
+- **Currency Selection**: Choose your preferred currency (EUR, USD, JPY, GBP) in Settings.
+- **Modern UI**: Sleek, dark, and vibrant design with smooth transitions and notifications.
+- **Local Privacy**: All data is stored locally in your browser—nothing is sent to external servers.
+
+---
 
 ## Installation
 
-### Method 1: Load as Unpacked Extension (Development)
+1. **Download or Clone** this repository to your computer.
+2. **Open Chrome** and go to `chrome://extensions/`.
+3. **Enable Developer Mode** (toggle in the top right).
+4. **Click "Load unpacked"** and select the folder containing this extension.
+5. **Pin Cryon Cart** to your toolbar for easy access.
 
-1. **Download or Clone** this repository to your local machine
-2. **Open Chrome** and navigate to `chrome://extensions/`
-3. **Enable Developer Mode** by toggling the switch in the top right corner
-4. **Click "Load unpacked"** and select the folder containing this extension
-5. **Pin the extension** to your toolbar for easy access
-
-### Method 2: Create Icons (Required)
-
-Before loading the extension, you need to create icon files. You can use any image editor or online tool to create:
-
-- `icons/icon16.png` (16x16 pixels)
-- `icons/icon48.png` (48x48 pixels)  
-- `icons/icon128.png` (128x128 pixels)
-
-Or use a simple shopping cart emoji converted to PNG format.
+---
 
 ## Usage
 
-### Adding Items to Cart
+### Adding Items
+- **Quick Add**: On any product page, click the extension icon and use "Quick Add from Page" to extract product info.
+- **Manual Add**: Use the "Add Item" tab to enter details manually.
+- **Context Menu**: Right-click a page and select "Add to Universal Cart" (if enabled).
 
-#### Method 1: Quick Add from Page
-1. Navigate to any product page
-2. Click the extension icon in your toolbar
-3. Click "Quick Add from Page" button
-4. The extension will automatically extract product information and add it to your cart
+### Organizing with Folders
+- Go to the **Folders** tab.
+- Create, rename, or delete folders with the "+" button and context menu.
+- Double-click a folder to filter the cart by that folder.
+- Items can be assigned to folders when adding or editing.
 
-#### Method 2: Manual Addition
-1. Click the extension icon
-2. Go to the "Add Item" tab
-3. Fill in the product details:
-   - Item Name (required)
-   - Price (required)
-   - Website URL (optional)
-   - Notes (optional)
-4. Click "Add to Cart"
+### Cart Management
+- View all items in the **Cart** tab, grouped by folder.
+- Expand/collapse folder groups for a clean view.
+- Edit or remove items with the respective buttons.
+- Clear the entire cart with one click.
 
-#### Method 3: Right-Click Context Menu
-1. Right-click on any page
-2. Select "Add to Universal Cart" from the context menu
+### Price Tracking
+- Click **Update Prices** in the cart to re-extract prices for all items (opens product pages in background tabs).
+- **Note:** Due to browser security, price updates only work for pages that allow content script injection and may not work for all sites.
 
-### Managing Your Cart
+### Exporting & Settings
+- Open the **Settings** menu (cogwheel icon).
+- Change your preferred currency.
+- Export your cart as a JSON file.
 
-- **View Items**: Click the extension icon to see all items in your cart
-- **Remove Items**: Click the "Remove" button next to any item
-- **Clear Cart**: Click "Clear Cart" to remove all items
-- **Export Cart**: Click "Export List" to download your cart as a JSON file
+---
 
-### Cart Information
+## Limitations & Privacy
+- **No background scraping:** Chrome extensions cannot scrape prices in the background without opening tabs (due to browser security and CORS).
+- **No server-side tracking:** All data stays on your device. No external servers, no tracking.
+- **Works best on standard e-commerce sites:** Some custom or highly dynamic sites may not be fully supported for auto-extraction.
 
-Each cart item includes:
-- Product name
-- Price
-- Source website URL
-- Notes/description
-- Date added
-- Source method (manual, page extraction, or context menu)
+---
+
+## Brand & Credits
+**Cryon Cart** is a product of [Cryon.ai](https://cryon.ai), designed for a modern, privacy-conscious web.
+
+---
 
 ## File Structure
-
 ```
-universal-shopping-cart/
-├── manifest.json          # Extension configuration
-├── popup.html            # Main popup interface
-├── popup.css             # Popup styling
-├── popup.js              # Popup functionality
-├── content.js            # Content script for page interaction
-├── content.css           # Content script styling
-├── background.js         # Background service worker
-├── icons/                # Extension icons
-│   ├── icon16.png
-│   ├── icon48.png
-│   └── icon128.png
-└── README.md             # This file
+pac/
+  background.js         # Service worker for storage and context menu
+  content.js            # Content script for extracting product info
+  content.css           # Content script styles
+  popup.html            # Main popup UI
+  popup.js              # Popup logic and UI
+  popup.css             # Popup styles (modern, dark, vibrant)
+  manifest.json         # Chrome extension manifest
+  icons/                # Extension icons
+  README.md             # This file
 ```
 
-## Technical Details
+---
 
-### Permissions Used
-
-- `activeTab`: Access to the currently active tab
-- `storage`: Store cart data locally
-- `tabs`: Access tab information
-- `contextMenus`: Add right-click context menu option
-
-### Data Storage
-
-- Cart data is stored locally using Chrome's `chrome.storage.local` API
-- Data persists between browser sessions
-- No data is sent to external servers
-
-### Product Detection
-
-The extension uses various CSS selectors to detect product information:
-- Product names: `h1`, `.product-title`, `.item-name`, etc.
-- Prices: `.price`, `[class*="price"]`, currency patterns
-- Descriptions: `.description`, `.product-description`, meta tags
-
-## Troubleshooting
-
-### Extension Not Working
-1. Make sure Developer Mode is enabled in Chrome extensions
-2. Check the browser console for any error messages
-3. Try reloading the extension
-
-### Product Detection Issues
-- Some websites may use custom structures that the extension can't detect
-- Use the manual addition method for such cases
-- The extension works best with standard e-commerce sites
-
-### Cart Not Saving
-- Check if you have sufficient storage space
-- Try clearing browser cache and cookies
-- Ensure the extension has the necessary permissions
-
-## Privacy
-
-- All data is stored locally on your device
-- No information is transmitted to external servers
-- The extension only accesses web pages when you explicitly use it
-
-## Contributing
-
-Feel free to submit issues, feature requests, or pull requests to improve the extension.
-
-## License
-
-This project is open source and available under the MIT License.
-
-## Support
-
-If you encounter any issues or have questions, please create an issue in the repository or contact the developer. 
+## Support & Feedback
+- For issues, feature requests, or contributions, please open an issue or PR on the repository.
+- For more about Cryon.ai, visit [cryon.ai](https://cryon.ai). 
