@@ -25,7 +25,7 @@ A modern, privacy-first Chrome extension for managing your shopping cart across 
 2. **Open Chrome** and go to `chrome://extensions/`.
 3. **Enable Developer Mode** (toggle in the top right).
 4. **Click "Load unpacked"** and select the folder containing this extension.
-5. **Pin Cryon Cart** to your toolbar for easy access.
+5. **Pin** to your toolbar for easy access.
 
 ---
 
@@ -66,11 +66,6 @@ A modern, privacy-first Chrome extension for managing your shopping cart across 
 
 ---
 
-## Brand & Credits
-**Cryon Cart** is a product of [Cryon.ai](https://cryon.ai), designed for a modern, privacy-conscious web.
-
----
-
 ## File Structure
 ```
 pac/
@@ -90,4 +85,3 @@ pac/
 ## Support & Feedback
 - For issues, feature requests, or contributions, please open an issue or PR on the repository.
 
-- For more about Cryon.ai, visit [cryon.ai](https://cryon.ai). 
