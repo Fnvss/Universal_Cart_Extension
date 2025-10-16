@@ -1,6 +1,6 @@
-# Cryon Cart – Universal Shopping Cart Extension
+# Universal Shopping Cart Extension
 
-A modern, privacy-first Chrome extension by Cryon.ai for managing your shopping cart across any website. Organize items into folders, track prices, and enjoy a sleek, futuristic UI—all with your data stored locally.
+A modern, privacy-first Chrome extension for managing your shopping cart across any website. Organize items into folders, track prices, and enjoy a sleek, futuristic UI—all with your data stored locally.
 
 ---
 
@@ -89,4 +89,5 @@ pac/
 
 ## Support & Feedback
 - For issues, feature requests, or contributions, please open an issue or PR on the repository.
+
 - For more about Cryon.ai, visit [cryon.ai](https://cryon.ai). 
